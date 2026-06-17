@@ -8,6 +8,7 @@ ARCHIVE_URL="${JAL_BAZZITE_ARCHIVE_URL:-https://github.com/${REPO_OWNER}/${REPO_
 INSTALL_DIR="${JAL_BAZZITE_HOME:-$HOME/.local/share/jal-bazzite}"
 UBLUE_JUST_DIR="${JAL_BAZZITE_UBLUE_JUST_DIR:-/usr/share/ublue-os/just}"
 UBLUE_CUSTOM_JUST="${UBLUE_JUST_DIR}/60-custom.just"
+UJUST_WRAPPER="${JAL_BAZZITE_UJUST_WRAPPER:-/usr/local/bin/ujust}"
 
 die() {
   echo "erro: $*" >&2
@@ -105,8 +106,71 @@ register_ujust_import() {
   fi
 
   warn "nao consegui escrever em ${UBLUE_CUSTOM_JUST}."
-  warn "Se o sistema estiver bloqueando /usr, registre manualmente este import:"
+  if install_ujust_wrapper; then
+    return 0
+  fi
+
+  warn "Registre manualmente este import:"
   warn "  ${import_line}"
+}
+
+install_ujust_wrapper() {
+  local wrapper_dir
+  local wrapper_tmp
+  local install_dir_literal
+
+  wrapper_dir="$(dirname -- "$UJUST_WRAPPER")"
+  wrapper_tmp="$(mktemp)"
+  install_dir_literal="$(printf '%q' "$INSTALL_DIR")"
+
+  info "Instalando wrapper do ujust em ${UJUST_WRAPPER}"
+
+  cat >"$wrapper_tmp" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+system_ujust="/usr/bin/ujust"
+system_just="/usr/bin/just"
+jal_home="\${JAL_BAZZITE_HOME:-${install_dir_literal}}"
+jal_just="\${jal_home}/recipes/jal.just"
+
+if [ "\$#" -gt 0 ]; then
+  case "\$1" in
+    jal-*|jal-help)
+      exec "\$system_just" --justfile "\$jal_just" "\$@"
+      ;;
+  esac
+fi
+
+case "\${1:-}" in
+  --summary)
+    "\$system_ujust" "\$@"
+    [ -f "\$jal_just" ] && "\$system_just" --justfile "\$jal_just" --summary
+    ;;
+  -l|--list)
+    "\$system_ujust" "\$@"
+    if [ -f "\$jal_just" ]; then
+      printf '\\nJAL recipes:\\n'
+      "\$system_just" --justfile "\$jal_just" --list
+    fi
+    ;;
+  *)
+    exec "\$system_ujust" "\$@"
+    ;;
+esac
+EOF
+
+  chmod +x "$wrapper_tmp"
+
+  if sudo mkdir -p "$wrapper_dir" && sudo install -m 0755 "$wrapper_tmp" "$UJUST_WRAPPER"; then
+    rm -f "$wrapper_tmp"
+    info "Wrapper instalado. Abra um novo terminal ou rode: hash -r"
+    return 0
+  fi
+
+  rm -f "$wrapper_tmp"
+  warn "nao consegui instalar o wrapper em ${UJUST_WRAPPER}."
+  return 1
 }
 
 main() {
