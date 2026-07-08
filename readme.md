@@ -5,7 +5,7 @@ Recipes pessoais de `ujust` para montar minha configuracao no Bazzite.
 ## Instalar
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jvvls/jal-bazzite/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jvvls/fedora-build/main/install.sh | bash
 ```
 
 Depois:
