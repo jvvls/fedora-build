@@ -263,8 +263,7 @@ setup_dev_box() {
       java-17-openjdk-devel \
       nodejs \
       npm \
-      golang \
-      gradle
+      golang
 
     touch "$HOME/.zshrc"
     sed -i "/^# >>> jal-dev$/,/^# <<< jal-dev$/d" "$HOME/.zshrc"
@@ -285,8 +284,8 @@ setup_dataviva_box() {
     set -euo pipefail
 
     sudo dnf install -y \
-      java-11-openjdk \
-      java-11-openjdk-devel \
+      java-17-openjdk \
+      java-17-openjdk-devel \
       python3 \
       python3-pip \
       maven
@@ -304,7 +303,7 @@ setup_dataviva_box() {
     sed -i \"/^# >>> jal-dataviva$/,/^# <<< jal-dataviva$/d\" \"\$HOME/.zshrc\"
     cat >> \"\$HOME/.zshrc\" <<'EOF'
 # >>> jal-dataviva
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 export SPARK_HOME=\$HOME/apps/spark
 export PATH=\$JAVA_HOME/bin:\$SPARK_HOME/bin:\$SPARK_HOME/sbin:\$PATH
 # <<< jal-dataviva
