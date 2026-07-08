@@ -2,7 +2,7 @@
 set -euo pipefail
 
 REPO_OWNER="${JAL_BAZZITE_REPO_OWNER:-jvvls}"
-REPO_NAME="${JAL_BAZZITE_REPO_NAME:-jal-bazzite}"
+REPO_NAME="${JAL_BAZZITE_REPO_NAME:-fedora-build}"
 REPO_BRANCH="${JAL_BAZZITE_REPO_BRANCH:-main}"
 ARCHIVE_URL="${JAL_BAZZITE_ARCHIVE_URL:-https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_BRANCH}.tar.gz}"
 INSTALL_DIR="${JAL_BAZZITE_HOME:-$HOME/.local/share/jal-bazzite}"
