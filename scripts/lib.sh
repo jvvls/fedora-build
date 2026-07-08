@@ -32,13 +32,13 @@ has_command() {
 ensure_flathub() {
   has_command flatpak || die "flatpak nao encontrado"
   log "Garantindo Flathub"
-  flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+  flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 }
 
 flatpak_install() {
   ensure_flathub
   log "Instalando Flatpaks"
-  flatpak install -y flathub "$@"
+  flatpak install --user -y flathub "$@"
 }
 
 brew_install_if_available() {
