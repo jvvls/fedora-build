@@ -52,7 +52,7 @@ brew_install_if_available() {
 }
 
 rpm_installed() {
-  rpm -q "$1" >/dev/null 2>&1
+  rpm -q "$1" >/dev/null 2>&1 || rpm -q --whatprovides "$1" >/dev/null 2>&1
 }
 
 install_host_rpms() {
@@ -258,8 +258,8 @@ setup_dev_box() {
     set -euo pipefail
 
     sudo dnf install -y \
-      java-17-openjdk \
-      java-17-openjdk-devel \
+      java-25-openjdk \
+      java-25-openjdk-devel \
       nodejs \
       npm \
       golang
@@ -292,8 +292,8 @@ setup_dataviva_box() {
     set -euo pipefail
 
     sudo dnf install -y \
-      java-17-openjdk \
-      java-17-openjdk-devel \
+      java-25-openjdk \
+      java-25-openjdk-devel \
       python3 \
       python3-pip \
       maven
