@@ -7,8 +7,10 @@ source "${SCRIPT_DIR}/lib.sh"
 
 ensure_not_root
 
-create_fedora_box dev
-setup_common_box dev
-setup_dev_box dev
+BOX_NAME="${1:-dev}"
 
-log "jal-dev finalizado. Use: distrobox enter dev"
+create_fedora_box "$BOX_NAME"
+setup_common_box "$BOX_NAME"
+setup_dev_box "$BOX_NAME"
+
+log "jal-dev finalizado. Use: distrobox enter ${BOX_NAME}"

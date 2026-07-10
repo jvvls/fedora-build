@@ -8,7 +8,54 @@ source "${SCRIPT_DIR}/lib.sh"
 ensure_not_root
 
 flatpak_install \
-  com.mattjakeman.ExtensionManager
+  com.mattjakeman.ExtensionManager \
+  app.devsuite.Ptyxis
+
+log "Configurando Oh My Zsh no host"
+ensure_oh_my_zsh
+configure_host_zsh
+
+log "Instalando pywal"
+if has_command python3; then
+  python3 -m pip install --user pywal || warn "falha ao instalar pywal via pip"
+else
+  warn "python3 nao encontrado; pywal nao instalado"
+fi
+
+# Adicionar restauracao de cores do pywal ao .zshrc
+touch "$HOME/.zshrc"
+sed -i "/^# >>> jal-pywal$/,/^# <<< jal-pywal$/d" "$HOME/.zshrc"
+cat >> "$HOME/.zshrc" <<'EOF'
+# >>> jal-pywal
+export PATH="$HOME/.local/bin:$PATH"
+[ -f "$HOME/.cache/wal/sequences" ] && (cat "$HOME/.cache/wal/sequences" &)
+[ -f "$HOME/.cache/wal/colors.sh" ] && source "$HOME/.cache/wal/colors.sh"
+# <<< jal-pywal
+EOF
+
+# Garantir que pywal esta no PATH para uso imediato
+export PATH="$HOME/.local/bin:$PATH"
+
+# Rodar pywal com o wallpaper atual, se disponivel
+if has_command wal && has_command gsettings; then
+  _wp_raw=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null || true)
+  _wp="${_wp_raw//\'/}"
+  _wp="${_wp#file://}"
+  if [ -f "$_wp" ]; then
+    log "Aplicando pywal com wallpaper atual: ${_wp}"
+    wal -i "$_wp" --backend haishoku 2>/dev/null || wal -i "$_wp" 2>/dev/null || warn "falha ao rodar wal"
+  else
+    warn "Wallpaper nao encontrado em '${_wp}'; rode 'wal -i <imagem>' manualmente"
+  fi
+else
+  warn "wal ou gsettings nao encontrado; rode 'wal -i <imagem>' apos reiniciar o shell"
+fi
+
+# Mudar shell padrao para zsh
+if has_command zsh && [ "$SHELL" != "$(command -v zsh)" ]; then
+  log "Mudando shell padrao para zsh"
+  chsh -s "$(command -v zsh)" || warn "falha ao mudar shell; rode manualmente: chsh -s $(command -v zsh)"
+fi
 
 log "Configurando preferencias GNOME"
 
@@ -92,7 +139,7 @@ configure_keyboard_shortcuts() {
 
   set_custom_keybinding custom0 "Ulauncher" 'sh -c "pgrep -x ulauncher && { ulauncher-toggle || true; } || setsid -f ulauncher"' '<Super>space'
   set_custom_keybinding custom1 "Flameshot" 'sh -c -- "flameshot gui"' '<Control>Print'
-  set_custom_keybinding custom2 "New Alacritty Window" 'alacritty' '<Shift><Alt>2'
+  set_custom_keybinding custom2 "New Ptyxis Window" 'flatpak run app.devsuite.Ptyxis' '<Shift><Alt>2'
   set_custom_keybinding custom3 "New Chrome Window" 'google-chrome --new-window' '<Shift><Alt>1'
   set_custom_keybinding custom4 "Apple Brightness Down (ASDControl)" "sh -c 'asdcontrol \$(asdcontrol --detect /dev/usb/hiddev* 2>/dev/null | grep ^/dev/usb/hiddev | cut -d: -f1) -- -5000'" '<Control>F1'
   set_custom_keybinding custom5 "Apple Brightness Up (ASDControl)" "sh -c 'asdcontrol \$(asdcontrol --detect /dev/usb/hiddev* 2>/dev/null | grep ^/dev/usb/hiddev | cut -d: -f1) -- +5000'" '<Control>F2'

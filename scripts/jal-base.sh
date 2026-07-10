@@ -7,6 +7,8 @@ source "${SCRIPT_DIR}/lib.sh"
 
 ensure_not_root
 
+ensure_bazzite_dx
+
 flatpak_install \
   com.brave.Browser \
   com.discordapp.Discord \

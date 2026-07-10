@@ -152,7 +152,6 @@ alias cat="bat"
 alias top="btop"
 alias update="ujust update"
 alias dev="distrobox enter dev"
-alias dataviva="distrobox enter dataviva"
 EOF
 }
 
@@ -265,14 +264,23 @@ setup_dev_box() {
       npm \
       golang
 
+    # Instalar VSCode via repositorio Microsoft
+    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+    printf "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc\n" \
+      | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
+    sudo dnf install -y code
+
     touch "$HOME/.zshrc"
     sed -i "/^# >>> jal-dev$/,/^# <<< jal-dev$/d" "$HOME/.zshrc"
     cat >> "$HOME/.zshrc" <<'"'"'EOF'"'"'
 # >>> jal-dev
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+export JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")
 export PATH="$JAVA_HOME/bin:$PATH"
 # <<< jal-dev
 EOF
+
+    # Exportar VSCode para o sistema host
+    command -v distrobox-export >/dev/null 2>&1 && distrobox-export --app code || true
   '
 }
 
@@ -301,12 +309,78 @@ setup_dataviva_box() {
 
     touch \"\$HOME/.zshrc\"
     sed -i \"/^# >>> jal-dataviva$/,/^# <<< jal-dataviva$/d\" \"\$HOME/.zshrc\"
-    cat >> \"\$HOME/.zshrc\" <<'EOF'
+    printf '# >>> jal-dataviva\nexport JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")\nexport SPARK_HOME=$HOME/apps/spark\nexport PATH=$JAVA_HOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH\n# <<< jal-dataviva\n' \
+      >> \"\$HOME/.zshrc\"
+  "
+}
+
+setup_dataviva_host() {
+  log "Instalando stack DataViva no host"
+
+  # Java via SDKMan (nao requer root nem rpm-ostree)
+  if [ ! -d "$HOME/.sdkman" ]; then
+    has_command curl || die "curl nao encontrado"
+    log "Instalando SDKMan"
+    curl -s "https://get.sdkman.io" | bash
+  fi
+
+  # shellcheck disable=SC1091
+  source "$HOME/.sdkman/bin/sdkman-init.sh" 2>/dev/null || true
+
+  if has_command sdk; then
+    sdk install java 17 2>/dev/null || true
+  else
+    warn "sdk nao disponivel apos instalacao; reinicie o shell e rode sdk install java 17"
+  fi
+
+  # Spark
+  mkdir -p "$HOME/apps"
+  if [ ! -d "$HOME/apps/${SPARK_PACKAGE}" ]; then
+    log "Baixando Apache Spark ${SPARK_VERSION}"
+    wget -c "${SPARK_URL}" -O "/tmp/${SPARK_PACKAGE}.tgz"
+    tar -xzf "/tmp/${SPARK_PACKAGE}.tgz" -C "$HOME/apps"
+  fi
+  ln -sfn "$HOME/apps/${SPARK_PACKAGE}" "$HOME/apps/spark"
+
+  # Python deps (sem container)
+  has_command python3 || warn "python3 nao encontrado no host"
+  if has_command python3; then
+    python3 -m pip install --user pyspark || warn "falha ao instalar pyspark via pip"
+  fi
+
+  # Bloco .zshrc
+  touch "$HOME/.zshrc"
+  sed -i "/^# >>> jal-dataviva$/,/^# <<< jal-dataviva$/d" "$HOME/.zshrc"
+  cat >> "$HOME/.zshrc" <<'EOF'
 # >>> jal-dataviva
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-export SPARK_HOME=\$HOME/apps/spark
-export PATH=\$JAVA_HOME/bin:\$SPARK_HOME/bin:\$SPARK_HOME/sbin:\$PATH
+[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && source "$HOME/.sdkman/bin/sdkman-init.sh"
+export SPARK_HOME="$HOME/apps/spark"
+export PATH="$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH"
 # <<< jal-dataviva
 EOF
-  "
+}
+
+ensure_bazzite_dx() {
+  log "Verificando imagem bazzite-dx"
+
+  local target="bazzite-dx-nvidia-gnome:stable"
+
+  # Ja esta na imagem dx?
+  if rpm-ostree status 2>/dev/null | grep -q "bazzite-dx"; then
+    log "Ja rodando bazzite-dx. Nenhuma acao necessaria."
+    return 0
+  fi
+
+  if has_command brh; then
+    log "Fazendo rebase para ${target} via brh"
+    brh rebase "${target}"
+  elif has_command rpm-ostree; then
+    log "Fazendo rebase para ${target} via rpm-ostree"
+    sudo rpm-ostree rebase "ostree-image-signed:docker://ghcr.io/ublue-os/bazzite-dx-nvidia-gnome:stable"
+  else
+    warn "brh e rpm-ostree nao encontrados; rebase nao realizado"
+    return 1
+  fi
+
+  warn "Rebase agendado. E necessario reiniciar o sistema para aplicar a nova imagem."
 }

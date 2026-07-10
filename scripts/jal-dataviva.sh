@@ -7,8 +7,6 @@ source "${SCRIPT_DIR}/lib.sh"
 
 ensure_not_root
 
-create_fedora_box dataviva
-setup_common_box dataviva
-setup_dataviva_box dataviva
+setup_dataviva_host
 
-log "jal-dataviva finalizado. Use: distrobox enter dataviva"
+log "jal-dataviva finalizado. Reinicie o shell ou execute: source ~/.zshrc"
