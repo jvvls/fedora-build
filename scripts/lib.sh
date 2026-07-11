@@ -291,13 +291,23 @@ setup_dev_box() {
 
     touch "$HOME/.zshrc"
     sed -i "/^# >>> jal-dev$/,/^# <<< jal-dev$/d" "$HOME/.zshrc"
-    cat >> "$HOME/.zshrc" <<'"'"'EOF'"'"'
-# >>> jal-dev
-[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-export JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")
-export PATH="$JAVA_HOME/bin:$PATH"
-# <<< jal-dev
-EOF
+    {
+      echo "# >>> jal-dev"
+      # ~/.zshrc e compartilhado com o host (mesmo $HOME do distrobox), entao
+      # so aplicamos o JAVA_HOME deste container quando o shell realmente
+      # esta rodando dentro dele; senao o host herdaria o JDK 17 e brigaria
+      # com o pin de 11.x que o jal-dataviva faz para o host.
+      echo "if [ -f /run/.containerenv ]; then"
+      if [ -n "$java_id" ]; then
+        echo "  export JAVA_HOME=\"\$HOME/.sdkman/candidates/java/${java_id}\""
+      else
+        echo "  [ -s \"\$HOME/.sdkman/bin/sdkman-init.sh\" ] && source \"\$HOME/.sdkman/bin/sdkman-init.sh\""
+        echo "  export JAVA_HOME=\$(dirname \"\$(dirname \"\$(readlink -f \"\$(command -v java)\")\")\")"
+      fi
+      echo "  export PATH=\"\$JAVA_HOME/bin:\$PATH\""
+      echo "fi"
+      echo "# <<< jal-dev"
+    } >> "$HOME/.zshrc"
 
     # Exportar VSCode para o sistema host
     command -v distrobox-export >/dev/null 2>&1 && distrobox-export --app code || true
@@ -306,6 +316,8 @@ EOF
 
 setup_dataviva_host() {
   log "Instalando stack DataViva no host"
+
+  local java_id=""
 
   # Java via SDKMan (nao requer root nem rpm-ostree)
   if [ ! -d "$HOME/.sdkman" ]; then
@@ -322,7 +334,6 @@ setup_dataviva_host() {
   source "$HOME/.sdkman/bin/sdkman-init.sh" 2>/dev/null || true
 
   if has_command sdk; then
-    local java_id
     java_id="$(sdk list java 2>/dev/null | grep -oE '11\.[0-9]+\.[0-9]+-tem' | head -n1)"
     if [ -n "$java_id" ]; then
       sdk install java "$java_id" || true
@@ -361,14 +372,22 @@ setup_dataviva_host() {
   # Bloco .zshrc
   touch "$HOME/.zshrc"
   sed -i "/^# >>> jal-dataviva$/,/^# <<< jal-dataviva$/d" "$HOME/.zshrc"
-  cat >> "$HOME/.zshrc" <<'EOF'
-# >>> jal-dataviva
-[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && source "$HOME/.sdkman/bin/sdkman-init.sh"
-export SPARK_HOME="$HOME/apps/spark"
-export HADOOP_HOME="$HOME/apps/hadoop"
-export PATH="$SPARK_HOME/bin:$SPARK_HOME/sbin:$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH"
-# <<< jal-dataviva
-EOF
+  {
+    echo "# >>> jal-dataviva"
+    if [ -n "$java_id" ]; then
+      # O container "dev" compartilha ~/.sdkman com o host (mesmo $HOME), entao
+      # o symlink "current" do SDKMan e global e nao pode ser usado para
+      # diferenciar as duas versoes. Fixamos o JAVA_HOME direto na build 11.x
+      # resolvida (o container faz o mesmo com a build 17.x dele).
+      echo "export JAVA_HOME=\"\$HOME/.sdkman/candidates/java/${java_id}\""
+    else
+      echo '[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && source "$HOME/.sdkman/bin/sdkman-init.sh"'
+    fi
+    echo 'export SPARK_HOME="$HOME/apps/spark"'
+    echo 'export HADOOP_HOME="$HOME/apps/hadoop"'
+    echo 'export PATH="$JAVA_HOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH"'
+    echo "# <<< jal-dataviva"
+  } >> "$HOME/.zshrc"
 }
 
 ensure_bazzite_dx() {
