@@ -120,7 +120,7 @@ exec "$@"
 
   write_mock "$dir" ujust '
 if [ "${1:-}" = "--summary" ]; then
-  printf "install-jetbrains-toolbox jal-base jal-gaming jal-dev jal-dataviva jal-gnome jal-all\n"
+  printf "install-jetbrains-toolbox jal-base jal-dev jal-dataviva jal-gnome jal-all\n"
   exit 0
 fi
 printf "ujust" >> "${JAL_TEST_LOG:?}"
@@ -256,14 +256,14 @@ test_recipe_graph() {
     assert_file_exists "${ROOT_DIR}/recipes/${import}"
   done < <(awk '/^import / { gsub(/"/, "", $2); print $2 }' "${ROOT_DIR}/recipes/jal.just")
 
-  for profile in base gaming dev dataviva gnome; do
+  for profile in base dev dataviva gnome; do
     recipe="${ROOT_DIR}/recipes/jal-${profile}.just"
     assert_file_exists "$recipe"
     assert_contains "$recipe" "scripts/jal-${profile}.sh"
     assert_file_exists "${ROOT_DIR}/scripts/jal-${profile}.sh"
   done
 
-  assert_contains "${ROOT_DIR}/recipes/jal-all.just" "jal-all: jal-base jal-gaming jal-dev jal-dataviva jal-gnome"
+  assert_contains "${ROOT_DIR}/recipes/jal-all.just" "jal-all: jal-base jal-dev jal-dataviva jal-gnome"
 
   if command -v just >/dev/null 2>&1; then
     (cd "${ROOT_DIR}/recipes" && just --justfile jal.just --summary >/dev/null)
@@ -431,7 +431,6 @@ test_profile_scripts_dry_run_with_mocks() {
 
   for script in \
     "${ROOT_DIR}/scripts/jal-base.sh" \
-    "${ROOT_DIR}/scripts/jal-gaming.sh" \
     "${ROOT_DIR}/scripts/jal-dev.sh" \
     "${ROOT_DIR}/scripts/jal-dataviva.sh" \
     "${ROOT_DIR}/scripts/jal-gnome.sh"; do
@@ -443,7 +442,6 @@ test_profile_scripts_dry_run_with_mocks() {
   done
 
   assert_contains "${tmp}/commands.log" "flatpak install -y flathub com.brave.Browser"
-  assert_contains "${tmp}/commands.log" "rpm-ostree install mangohud gamescope nvtop"
   assert_contains "${tmp}/commands.log" "distrobox create --name dev --image fedora:latest --yes"
   assert_contains "${tmp}/commands.log" "distrobox create --name dataviva --image fedora:latest --yes"
   assert_contains "${tmp}/commands.log" "gsettings set org.gnome.desktop.interface color-scheme prefer-dark"

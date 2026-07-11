@@ -55,39 +55,6 @@ brew_install_if_available() {
   brew install "$@"
 }
 
-rpm_installed() {
-  rpm -q "$1" >/dev/null 2>&1 || rpm -q --whatprovides "$1" >/dev/null 2>&1
-}
-
-install_host_rpms() {
-  local missing=()
-  local pkg
-
-  has_command rpm || return 0
-
-  for pkg in "$@"; do
-    if ! rpm_installed "$pkg"; then
-      missing+=("$pkg")
-    fi
-  done
-
-  if [ "${#missing[@]}" -eq 0 ]; then
-    log "Pacotes RPM do host ja estao presentes: $*"
-    return 0
-  fi
-
-  if has_command rpm-ostree; then
-    log "Instalando RPMs no host via rpm-ostree: ${missing[*]}"
-    sudo rpm-ostree install "${missing[@]}"
-    warn "rpm-ostree pode exigir reboot para ativar os pacotes."
-  elif has_command dnf; then
-    log "Instalando RPMs no host via dnf: ${missing[*]}"
-    sudo dnf install -y "${missing[@]}"
-  else
-    warn "sem rpm-ostree/dnf; instale manualmente: ${missing[*]}"
-  fi
-}
-
 ujust_has_recipe() {
   has_command ujust || return 1
   ujust --summary 2>/dev/null | tr ' ' '\n' | grep -Fxq "$1"

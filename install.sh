@@ -189,7 +189,6 @@ main() {
   info "Pronto."
   echo "Use:"
   echo "  ujust jal-base"
-  echo "  ujust jal-gaming"
   echo "  ujust jal-dev"
   echo "  ujust jal-dataviva"
   echo "  ujust jal-gnome"

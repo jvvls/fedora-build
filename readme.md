@@ -17,7 +17,6 @@ ujust jal-all
 ## Recipes
 
 - `ujust jal-base`: instala apps Flatpak, ferramentas CLI via Homebrew quando disponivel, JetBrains Toolbox via recipe do Bazzite quando existir, Oh My Zsh e bloco JAL no `~/.zshrc`.
-- `ujust jal-gaming`: instala Heroic, ProtonUp-Qt, MangoHud, Gamescope e nvtop.
 - `ujust jal-dev`: cria/atualiza a distrobox `dev` com Java 17, Node, Python, Go, Maven, Gradle, Zsh e Oh My Zsh.
 - `ujust jal-dataviva`: cria/atualiza a distrobox `dataviva` com Java 11, Spark, Maven, Python, Zsh e Oh My Zsh.
 - `ujust jal-gnome`: aplica ajustes basicos de GNOME, restaura atalhos de teclado capturados da maquina atual e instala Extension Manager.
@@ -33,7 +32,6 @@ jal-bazzite/
 |   +-- jal-base.just
 |   +-- jal-dev.just
 |   +-- jal-dataviva.just
-|   +-- jal-gaming.just
 |   +-- jal-gnome.just
 |   +-- jal-all.just
 +-- scripts/
@@ -41,7 +39,6 @@ jal-bazzite/
     +-- jal-base.sh
     +-- jal-dev.sh
     +-- jal-dataviva.sh
-    +-- jal-gaming.sh
     +-- jal-gnome.sh
 ```
 
