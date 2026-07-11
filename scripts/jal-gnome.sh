@@ -43,9 +43,16 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Rodar pywal com o wallpaper atual, se disponivel
 if has_command wal && has_command gsettings; then
+  _wp_dark_raw=$(gsettings get org.gnome.desktop.background picture-uri-dark 2>/dev/null || true)
+  _wp_dark="${_wp_dark_raw//\'/}"
+  _wp_dark="${_wp_dark#file://}"
+
   _wp_raw=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null || true)
   _wp="${_wp_raw//\'/}"
   _wp="${_wp#file://}"
+
+  [ -f "$_wp_dark" ] && _wp="$_wp_dark"
+
   if [ -f "$_wp" ]; then
     log "Aplicando pywal com wallpaper atual: ${_wp}"
     wal -i "$_wp" --backend haishoku 2>/dev/null || wal -i "$_wp" 2>/dev/null || warn "falha ao rodar wal"
@@ -54,6 +61,30 @@ if has_command wal && has_command gsettings; then
   fi
 else
   warn "wal ou gsettings nao encontrado; rode 'wal -i <imagem>' apos reiniciar o shell"
+fi
+
+# Watcher do pywal: reaplica as cores automaticamente sempre que o
+# wallpaper mudar (systemd --user, roda em segundo plano).
+if has_command wal && has_command gsettings && has_command systemctl; then
+  log "Instalando watcher do pywal (systemd --user)"
+  mkdir -p "$HOME/.config/systemd/user"
+  cat > "$HOME/.config/systemd/user/jal-pywal-watch.service" <<EOF
+[Unit]
+Description=JAL pywal wallpaper watcher
+
+[Service]
+ExecStart=${SCRIPT_DIR}/jal-pywal-watch.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
+EOF
+  systemctl --user daemon-reload || warn "falha ao recarregar systemd --user"
+  systemctl --user enable --now jal-pywal-watch.service \
+    || warn "falha ao habilitar jal-pywal-watch.service; rode manualmente: systemctl --user enable --now jal-pywal-watch.service"
+else
+  warn "wal, gsettings ou systemctl indisponivel; watcher do pywal nao instalado"
 fi
 
 # Mudar shell padrao para zsh
@@ -166,6 +197,91 @@ if has_command gsettings; then
   configure_keyboard_shortcuts
 else
   warn "gsettings nao encontrado; pulando ajustes GNOME"
+fi
+
+# TopHat nao vem com o Bazzite; baixa da extensions.gnome.org pelo UUID.
+# Logo Menu ja vem instalada na imagem, so precisa ficar habilitada.
+install_gnome_extension() {
+  local uuid="$1"
+  local shell_version info download_path zip
+
+  if gnome-extensions list 2>/dev/null | grep -Fxq "$uuid"; then
+    log "Extensao ${uuid} ja instalada"
+    return 0
+  fi
+
+  if ! has_command curl || ! has_command jq; then
+    warn "curl/jq nao encontrados; nao consegui instalar ${uuid}"
+    return 0
+  fi
+
+  shell_version="$(gnome-shell --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -n1)"
+  info="$(curl -fsSL "https://extensions.gnome.org/extension-info/?uuid=${uuid}&shell_version=${shell_version}" 2>/dev/null)" || info=""
+  download_path="$(printf '%s' "$info" | jq -r '.download_url // empty' 2>/dev/null)"
+  if [ -z "$download_path" ]; then
+    warn "nao encontrei pacote de ${uuid} em extensions.gnome.org"
+    return 0
+  fi
+
+  zip="$(mktemp --suffix=.zip)"
+  if curl -fsSL "https://extensions.gnome.org${download_path}" -o "$zip"; then
+    gnome-extensions install --force "$zip" || warn "falha ao instalar ${uuid}"
+  else
+    warn "falha ao baixar ${uuid}"
+  fi
+  rm -f "$zip"
+}
+
+if has_command gnome-extensions; then
+  log "Instalando/habilitando extensoes GNOME (TopHat, Logo Menu)"
+  install_gnome_extension "tophat@fflewddur.github.io"
+  gnome-extensions enable "tophat@fflewddur.github.io" 2>/dev/null \
+    || warn "nao consegui habilitar tophat; pode exigir reiniciar a sessao apos instalar"
+  gnome-extensions enable "logomenu@aryan_k" 2>/dev/null \
+    || warn "nao consegui habilitar logomenu; pode exigir reiniciar a sessao"
+else
+  warn "gnome-extensions nao encontrado; pulando instalacao de extensoes"
+fi
+
+if has_command dconf; then
+  log "Aplicando configuracoes das extensoes GNOME (TopHat, Logo Menu)"
+
+  dconf load /org/gnome/shell/extensions/tophat/ <<'EOF'
+[/]
+cpu-display='both'
+mem-abs-units=true
+mem-display='both'
+meter-fg-color='rgb(0,0,0)'
+mount-to-monitor='/'
+position-in-panel='left'
+show-fs=false
+show-icons=true
+show-mem=true
+show-net=true
+use-system-accent=false
+EOF
+
+  dconf load "/org/gnome/shell/extensions/Logo-menu/" <<'EOF'
+[/]
+hide-forcequit=true
+hide-icon-shadow=false
+hide-warehouse=true
+menu-button-extensions-app='com.mattjakeman.ExtensionManager.desktop'
+menu-button-icon-image=7
+menu-button-icon-size=23
+menu-button-software-center='/usr/bin/bazaar'
+menu-button-system-monitor='/usr/bin/missioncenter-helper'
+menu-button-terminal='ptyxis --new-window'
+show-activities-button=true
+show-distroshelf=true
+show-gamemode=true
+show-lockscreen=false
+show-power-option=false
+symbolic-icon=true
+use-custom-icon=false
+EOF
+else
+  warn "dconf nao encontrado; configuracoes de extensoes nao aplicadas"
 fi
 
 log "Astra Monitor ainda fica como etapa manual pelo Extension Manager."

@@ -199,6 +199,32 @@ printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
 printf "\n" >> "${JAL_TEST_LOG:?}"
 '
 
+  write_mock "$dir" systemctl '
+printf "systemctl" >> "${JAL_TEST_LOG:?}"
+printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
+printf "\n" >> "${JAL_TEST_LOG:?}"
+'
+
+  write_mock "$dir" gnome-extensions '
+printf "gnome-extensions" >> "${JAL_TEST_LOG:?}"
+printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
+printf "\n" >> "${JAL_TEST_LOG:?}"
+'
+
+  write_mock "$dir" gnome-shell '
+printf "gnome-shell" >> "${JAL_TEST_LOG:?}"
+printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
+printf "\n" >> "${JAL_TEST_LOG:?}"
+printf "GNOME Shell 50.0\n"
+'
+
+  write_mock "$dir" dconf '
+printf "dconf" >> "${JAL_TEST_LOG:?}"
+printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
+printf "\n" >> "${JAL_TEST_LOG:?}"
+cat >/dev/null
+'
+
   write_mock "$dir" distrobox '
 printf "distrobox" >> "${JAL_TEST_LOG:?}"
 printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
