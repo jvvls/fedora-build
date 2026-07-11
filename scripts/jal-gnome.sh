@@ -11,6 +11,9 @@ flatpak_install \
   com.mattjakeman.ExtensionManager \
   app.devsuite.Ptyxis
 
+brew_install_if_available \
+  btop
+
 log "Configurando Oh My Zsh no host"
 ensure_oh_my_zsh
 configure_host_zsh
@@ -128,7 +131,7 @@ set_custom_keybinding() {
 }
 
 configure_keyboard_shortcuts() {
-  local custom_paths="['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom3/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom4/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom5/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom6/']"
+  local custom_paths="['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom3/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom4/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom5/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom6/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom7/']"
 
   log "Configurando atalhos de teclado GNOME"
 
@@ -187,6 +190,7 @@ configure_keyboard_shortcuts() {
   set_custom_keybinding custom4 "Apple Brightness Down (ASDControl)" "sh -c 'asdcontrol \$(asdcontrol --detect /dev/usb/hiddev* 2>/dev/null | grep ^/dev/usb/hiddev | cut -d: -f1) -- -5000'" '<Control>F1'
   set_custom_keybinding custom5 "Apple Brightness Up (ASDControl)" "sh -c 'asdcontrol \$(asdcontrol --detect /dev/usb/hiddev* 2>/dev/null | grep ^/dev/usb/hiddev | cut -d: -f1) -- +5000'" '<Control>F2'
   set_custom_keybinding custom6 "Apple Brightness Max (ASDControl)" "sh -c 'asdcontrol \$(asdcontrol --detect /dev/usb/hiddev* 2>/dev/null | grep ^/dev/usb/hiddev | cut -d: -f1) -- +60000'" '<Control><Shift>F2'
+  set_custom_keybinding custom7 "Btop + Terminal" "sh -c 'ptyxis -x btop & ptyxis --new-window &'" '<Shift><Super>a'
 }
 
 if has_command gsettings; then
@@ -195,6 +199,19 @@ if has_command gsettings; then
   gsettings set org.gnome.desktop.interface clock-show-weekday true || true
   gsettings set org.gnome.desktop.wm.preferences button-layout 'appmenu:minimize,maximize,close' || true
   configure_keyboard_shortcuts
+
+  log "Ajustando tamanho padrao do Ptyxis (90x23)"
+  set_gsetting org.gnome.Ptyxis default-columns "90"
+  set_gsetting org.gnome.Ptyxis default-rows "23"
+
+  # UUID do perfil padrao do Ptyxis e gerado por instalacao; nao da pra fixar.
+  ptyxis_profile_uuid="$(gsettings get org.gnome.Ptyxis default-profile-uuid 2>/dev/null | tr -d "'")"
+  if [ -n "$ptyxis_profile_uuid" ]; then
+    log "Ajustando opacidade do perfil padrao do Ptyxis"
+    set_gsetting "org.gnome.Ptyxis.Profile:/org/gnome/Ptyxis/Profiles/${ptyxis_profile_uuid}/" opacity "0.75"
+  else
+    warn "perfil padrao do Ptyxis nao encontrado (abra o Ptyxis uma vez); opacidade nao ajustada"
+  fi
 else
   warn "gsettings nao encontrado; pulando ajustes GNOME"
 fi
