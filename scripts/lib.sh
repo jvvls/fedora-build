@@ -144,7 +144,6 @@ plugins=(
 
 [ -f "$ZSH/oh-my-zsh.sh" ] && source "$ZSH/oh-my-zsh.sh"
 
-eval "$(starship init zsh)" 2>/dev/null || true
 eval "$(direnv hook zsh)" 2>/dev/null || true
 
 alias ll="eza -la --icons"
@@ -324,14 +323,25 @@ setup_dataviva_host() {
     curl -s "https://get.sdkman.io" | bash
   fi
 
+  # sdkman-init.sh e os comandos `sdk` referenciam variaveis nao definidas
+  # (ZSH_VERSION, PAGER etc.) e quebram com set -u; desativa nounset so
+  # neste trecho.
+  set +u
   # shellcheck disable=SC1091
   source "$HOME/.sdkman/bin/sdkman-init.sh" 2>/dev/null || true
 
   if has_command sdk; then
-    sdk install java 17 2>/dev/null || true
+    local java_id
+    java_id="$(sdk list java 2>/dev/null | grep -oE '11\.[0-9]+\.[0-9]+-tem' | head -n1)"
+    if [ -n "$java_id" ]; then
+      sdk install java "$java_id" || true
+    else
+      warn "nao encontrei build Temurin 11 no SDKMan; rode 'sdk list java' e instale manualmente"
+    fi
   else
-    warn "sdk nao disponivel apos instalacao; reinicie o shell e rode sdk install java 17"
+    warn "sdk nao disponivel apos instalacao; reinicie o shell e rode sdk install java 11"
   fi
+  set -u
 
   # Spark
   mkdir -p "$HOME/apps"

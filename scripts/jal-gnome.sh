@@ -22,16 +22,21 @@ else
   warn "python3 nao encontrado; pywal nao instalado"
 fi
 
-# Adicionar restauracao de cores do pywal ao .zshrc
-touch "$HOME/.zshrc"
-sed -i "/^# >>> jal-pywal$/,/^# <<< jal-pywal$/d" "$HOME/.zshrc"
-cat >> "$HOME/.zshrc" <<'EOF'
+# Adicionar restauracao de cores do pywal ao .zshrc e ao .bashrc.
+# Grava nos dois porque o shell padrao pode ainda nao ser zsh (chsh pode
+# falhar/nao persistir), e sem isso o pywal "para de funcionar" em
+# qualquer terminal novo que suba em bash.
+for rcfile in "$HOME/.zshrc" "$HOME/.bashrc"; do
+  touch "$rcfile"
+  sed -i "/^# >>> jal-pywal$/,/^# <<< jal-pywal$/d" "$rcfile"
+  cat >> "$rcfile" <<'EOF'
 # >>> jal-pywal
 export PATH="$HOME/.local/bin:$PATH"
-[ -f "$HOME/.cache/wal/sequences" ] && (cat "$HOME/.cache/wal/sequences" &)
+[ -f "$HOME/.cache/wal/sequences" ] && (command cat "$HOME/.cache/wal/sequences" &)
 [ -f "$HOME/.cache/wal/colors.sh" ] && source "$HOME/.cache/wal/colors.sh"
 # <<< jal-pywal
 EOF
+done
 
 # Garantir que pywal esta no PATH para uso imediato
 export PATH="$HOME/.local/bin:$PATH"
@@ -52,9 +57,16 @@ else
 fi
 
 # Mudar shell padrao para zsh
+# chsh (pacote util-linux-user) nao vem nesta imagem; usa usermod como
+# alternativa, que e o caminho recomendado em imagens atomicas.
 if has_command zsh && [ "$SHELL" != "$(command -v zsh)" ]; then
   log "Mudando shell padrao para zsh"
-  chsh -s "$(command -v zsh)" || warn "falha ao mudar shell; rode manualmente: chsh -s $(command -v zsh)"
+  if has_command chsh; then
+    chsh -s "$(command -v zsh)" || warn "falha ao mudar shell; rode manualmente: chsh -s $(command -v zsh)"
+  else
+    sudo usermod -s "$(command -v zsh)" "$(id -un)" \
+      || warn "falha ao mudar shell; rode manualmente: sudo usermod -s $(command -v zsh) $(id -un)"
+  fi
 fi
 
 log "Configurando preferencias GNOME"
