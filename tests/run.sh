@@ -167,6 +167,28 @@ printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
 printf "\n" >> "${JAL_TEST_LOG:?}"
 '
 
+  write_mock "$dir" wget '
+printf "wget" >> "${JAL_TEST_LOG:?}"
+printf " %q" "$@" >> "${JAL_TEST_LOG:?}"
+printf "\n" >> "${JAL_TEST_LOG:?}"
+out=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -O)
+      shift
+      out="$1"
+      ;;
+  esac
+  shift || true
+done
+if [ -n "$out" ]; then
+  fake_src="$(mktemp -d)"
+  mkdir -p "$fake_src/placeholder"
+  tar -czf "$out" -C "$fake_src" placeholder
+  rm -rf "$fake_src"
+fi
+'
+
   write_mock "$dir" gsettings '
 if [ "${1:-}" = "writable" ]; then
   printf "true\n"

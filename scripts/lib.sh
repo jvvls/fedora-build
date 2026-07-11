@@ -6,6 +6,10 @@ SPARK_VERSION="${SPARK_VERSION:-3.5.1}"
 SPARK_PACKAGE="spark-${SPARK_VERSION}-bin-hadoop3"
 SPARK_URL="https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/${SPARK_PACKAGE}.tgz"
 
+HADOOP_VERSION="${HADOOP_VERSION:-3.3.6}"
+HADOOP_PACKAGE="hadoop-${HADOOP_VERSION}"
+HADOOP_URL="https://archive.apache.org/dist/hadoop/common/${HADOOP_PACKAGE}/${HADOOP_PACKAGE}.tar.gz"
+
 log() {
   echo "==> $*"
 }
@@ -257,11 +261,27 @@ setup_dev_box() {
     set -euo pipefail
 
     sudo dnf install -y \
-      java-25-openjdk \
-      java-25-openjdk-devel \
+      curl \
       nodejs \
       npm \
       golang
+
+    # JDK 17 via SDKMan: o Fedora 44 nao empacota mais java-17-openjdk no
+    # dnf, e o JDK 17 e exclusivo deste container (o host usa JDK 11).
+    if [ ! -d "$HOME/.sdkman" ]; then
+      curl -s "https://get.sdkman.io" | bash
+    fi
+
+    set +u
+    # shellcheck disable=SC1091
+    source "$HOME/.sdkman/bin/sdkman-init.sh" 2>/dev/null || true
+    if command -v sdk >/dev/null 2>&1; then
+      java_id="$(sdk list java 2>/dev/null | grep -oE "17\.[0-9]+\.[0-9]+-tem" | head -n1)"
+      if [ -n "$java_id" ]; then
+        sdk install java "$java_id" || true
+      fi
+    fi
+    set -u
 
     # Instalar VSCode via repositorio Microsoft
     sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
@@ -273,6 +293,7 @@ setup_dev_box() {
     sed -i "/^# >>> jal-dev$/,/^# <<< jal-dev$/d" "$HOME/.zshrc"
     cat >> "$HOME/.zshrc" <<'"'"'EOF'"'"'
 # >>> jal-dev
+[ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && source "$HOME/.sdkman/bin/sdkman-init.sh"
 export JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")
 export PATH="$JAVA_HOME/bin:$PATH"
 # <<< jal-dev
@@ -281,36 +302,6 @@ EOF
     # Exportar VSCode para o sistema host
     command -v distrobox-export >/dev/null 2>&1 && distrobox-export --app code || true
   '
-}
-
-setup_dataviva_box() {
-  local name="$1"
-
-  log "Instalando stack DataViva em ${name}"
-  distrobox enter "$name" -- bash -lc "
-    set -euo pipefail
-
-    sudo dnf install -y \
-      java-25-openjdk \
-      java-25-openjdk-devel \
-      python3 \
-      python3-pip \
-      maven
-
-    mkdir -p \"\$HOME/apps\"
-
-    if [ ! -d \"\$HOME/apps/${SPARK_PACKAGE}\" ]; then
-      wget -c \"${SPARK_URL}\" -O \"/tmp/${SPARK_PACKAGE}.tgz\"
-      tar -xzf \"/tmp/${SPARK_PACKAGE}.tgz\" -C \"\$HOME/apps\"
-    fi
-
-    ln -sfn \"\$HOME/apps/${SPARK_PACKAGE}\" \"\$HOME/apps/spark\"
-
-    touch \"\$HOME/.zshrc\"
-    sed -i \"/^# >>> jal-dataviva$/,/^# <<< jal-dataviva$/d\" \"\$HOME/.zshrc\"
-    printf '# >>> jal-dataviva\nexport JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")\nexport SPARK_HOME=$HOME/apps/spark\nexport PATH=$JAVA_HOME/bin:$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH\n# <<< jal-dataviva\n' \
-      >> \"\$HOME/.zshrc\"
-  "
 }
 
 setup_dataviva_host() {
@@ -352,6 +343,15 @@ setup_dataviva_host() {
   fi
   ln -sfn "$HOME/apps/${SPARK_PACKAGE}" "$HOME/apps/spark"
 
+  # Hadoop
+  mkdir -p "$HOME/apps"
+  if [ ! -d "$HOME/apps/${HADOOP_PACKAGE}" ]; then
+    log "Baixando Apache Hadoop ${HADOOP_VERSION}"
+    wget -c "${HADOOP_URL}" -O "/tmp/${HADOOP_PACKAGE}.tar.gz"
+    tar -xzf "/tmp/${HADOOP_PACKAGE}.tar.gz" -C "$HOME/apps"
+  fi
+  ln -sfn "$HOME/apps/${HADOOP_PACKAGE}" "$HOME/apps/hadoop"
+
   # Python deps (sem container)
   has_command python3 || warn "python3 nao encontrado no host"
   if has_command python3; then
@@ -365,7 +365,8 @@ setup_dataviva_host() {
 # >>> jal-dataviva
 [ -s "$HOME/.sdkman/bin/sdkman-init.sh" ] && source "$HOME/.sdkman/bin/sdkman-init.sh"
 export SPARK_HOME="$HOME/apps/spark"
-export PATH="$SPARK_HOME/bin:$SPARK_HOME/sbin:$PATH"
+export HADOOP_HOME="$HOME/apps/hadoop"
+export PATH="$SPARK_HOME/bin:$SPARK_HOME/sbin:$HADOOP_HOME/bin:$HADOOP_HOME/sbin:$PATH"
 # <<< jal-dataviva
 EOF
 }
